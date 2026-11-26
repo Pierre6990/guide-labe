@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>Guide Labé – Collecte des lieux</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="jspdf.umd.min.js"></script>
+<style>
+:root{--p:#0f766e;--pd:#115e59;--bg:#f3f6f6;--card:#fff;--t:#1a2b2b;--m:#64797a;--b:#d5e0e0;--r:#dc2626}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--t);padding-bottom:80px}
+header{background:var(--p);color:#fff;padding:14px 16px;position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:18px}header small{opacity:.85}
+main{max-width:720px;margin:0 auto;padding:12px}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--b);display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:6}
+nav button{flex:1;border:0;background:none;padding:10px 4px;font-size:12px;color:var(--m)}
+nav button b{display:block;font-size:20px;font-weight:400}
+nav button.on{color:var(--p);font-weight:600}
+.card{background:var(--card);border:1px solid var(--b);border-radius:12px;padding:12px;margin-bottom:10px}
+.item{display:flex;gap:10px;align-items:center}
+.item img,.ph{width:64px;height:64px;border-radius:8px;object-fit:cover;background:#e3ecec;flex:none;display:flex;align-items:center;justify-content:center;font-size:26px}
+.item h3{margin:0;font-size:16px}.item p{margin:2px 0 0;font-size:13px;color:var(--m)}
+.badge{display:inline-block;background:#d9f2ee;color:var(--pd);border-radius:20px;padding:1px 9px;font-size:12px;margin-right:4px}
+.bar{display:flex;gap:8px;margin-bottom:10px}
+input,select,textarea{width:100%;padding:11px;border:1px solid var(--b);border-radius:10px;font:inherit;background:#fff}
+textarea{min-height:70px;resize:vertical}
+label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px;color:var(--pd)}
+label small{font-weight:400;color:var(--m)}
+.btn{border:0;background:var(--p);color:#fff;padding:12px 16px;border-radius:10px;font:inherit;font-weight:600;width:100%}
+.btn.sec{background:#e3ecec;color:var(--pd)}.btn.red{background:var(--r)}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--b);background:#fff;border-radius:20px;padding:6px 12px;font-size:14px}
+.chip.on{background:var(--p);color:#fff;border-color:var(--p)}
+.photos{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.photos div{position:relative}.photos img{width:92px;height:92px;object-fit:cover;border-radius:8px}
+.photos button{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;border:0;background:var(--r);color:#fff}
+.gps{font-size:13px;color:var(--m);margin-top:6px}
+.empty{text-align:center;color:var(--m);padding:40px 10px}
+.stat{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--b)}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#1a2b2b;color:#fff;padding:10px 16px;border-radius:20px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:9;max-width:90%}
+#toast.on{opacity:1}
+h2{font-size:17px;margin:4px 0 10px}
+.sec-t{font-size:14px;color:var(--p);margin:18px 0 0;border-bottom:2px solid var(--p);padding-bottom:3px;font-weight:700}
+</style>
+</head>
+<body>
+<header><h1>📍 Guide Labé – Collecte</h1><small id="sub"></small></header>
+<main id="app"></main>
+<nav>
+  <button data-v="list"><b>📋</b>Lieux</button>
+  <button data-v="form"><b>➕</b>Ajouter</button>
+  <button data-v="export"><b>📄</b>PDF / Export</button>
+</nav>
+<div id="toast"></div>
+
+<script>
+const CATS=[
+ ['🏨','Hôtel / Auberge'],['🍽️','Restaurant / Maquis'],['🛒','Supermarché / Alimentation'],['🏪','Boutique / Commerce'],
+ ['🏫','École / Université'],['💊','Pharmacie'],['🏥','Hôpital'],['⚕️','Centre de santé'],['🩺','Clinique / Cabinet médical'],
+ ['🎡','Lieu de loisir / Tourisme'],['🏦','Banque / Transfert d\'argent'],['⛽','Station-service'],['🛍️','Marché'],
+ ['🚌','Gare routière / Transport'],['🏛️','Administration / Mairie'],['👮','Police / Gendarmerie / Sécurité'],
+ ['⛪','Église / Mosquée'],['🔧','Garage / Mécanique'],['✂️','Salon de coiffure / Beauté'],['📶','Télécom / Cybercafé'],
+ ['⚽','Sport / Stade'],['🏢','Ambassade / ONG / Bureau'],['📍','Autre']
+];
+const SERVICES=['Wi-Fi','Climatisation','Parking','Livraison','Orange Money / Mobile Money','Carte bancaire','Ouvert 24h/24','Accès handicapé','Électricité permanente','Restauration sur place','Pharmacie de garde','Urgences'];
+const FIELDS_TXT=[['nom','Nom du lieu *'],['typePrecis','Type précis'],['quartier','Quartier / Secteur'],['adresse','Adresse / Description du lieu'],['repere','Point de repère proche'],['itineraire','Comment s\'y rendre'],['tel1','Téléphone 1'],['tel2','Téléphone 2'],['whatsapp','WhatsApp'],['email','E-mail'],['web','Site web / Facebook'],['horaires','Horaires d\'ouverture'],['gamme','Gamme de prix'],['description','Description / Informations utiles'],['notes','Remarques du collecteur']];
+
+let db,places=[],view='list',draft=null,filter={q:'',cat:''},delArm=false;
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const icon=c=>(CATS.find(x=>x[1]===c)||['📍'])[0];
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),2600)}
+
+/* ---------- Stockage (IndexedDB) ---------- */
+function openDB(){return new Promise((ok,ko)=>{const r=indexedDB.open('guide-labe',1);r.onupgradeneeded=()=>r.result.createObjectStore('places',{keyPath:'id'});r.onsuccess=()=>{db=r.result;ok()};r.onerror=()=>ko(r.error)})}
+const tx=(m)=>db.transaction('places',m).objectStore('places');
+const dbAll=()=>new Promise(ok=>{const r=tx('readonly').getAll();r.onsuccess=()=>ok(r.result||[])});
+const dbPut=p=>new Promise((ok,ko)=>{const r=tx('readwrite').put(p);r.onsuccess=ok;r.onerror=()=>ko(r.error)});
+const dbDel=id=>new Promise(ok=>{const r=tx('readwrite').delete(id);r.onsuccess=ok});
+async function reload(){places=await dbAll();$('#sub').textContent=places.length+' lieu'+(places.length>1?'x':'')+' enregistré'+(places.length>1?'s':'')}
+
+/* ---------- Navigation ---------- */
+function go(v,p){view=v;delArm=false;if(v==='form')draft=p?JSON.parse(JSON.stringify(p)):{id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),cat:'',services:[],photos:[]};
+ document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));render();scrollTo(0,0)}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
+
+function render(){({list:rList,form:rForm,export:rExport})[view]()}
+
+/* ---------- Liste ---------- */
+function rList(){
+ const q=filter.q.toLowerCase();
+ const L=places.filter(p=>(!filter.cat||p.cat===filter.cat)&&(!q||[p.nom,p.quartier,p.adresse,p.tel1,p.typePrecis,p.description].join(' ').toLowerCase().includes(q))).sort((a,b)=>(b.updated||0)-(a.updated||0));
+ $('#app').innerHTML=`<div class="bar"><input id="q" placeholder="🔎 Rechercher (nom, quartier, téléphone…)" value="${esc(filter.q)}"></div>
+ <div class="bar"><select id="fc"><option value="">Toutes les catégories</option>${CATS.map(c=>`<option ${filter.cat===c[1]?'selected':''}>${esc(c[1])}</option>`).join('')}</select></div>
+ ${L.length?L.map(p=>`<div class="card item" data-id="${p.id}">${p.photos&&p.photos[0]?`<img src="${p.photos[0].d}">`:`<div class="ph">${icon(p.cat)}</div>`}
+ <div style="min-width:0"><h3>${esc(p.nom)}</h3><p><span class="badge">${esc(p.cat)}</span>${esc(p.quartier||'')}</p>
+ <p>${p.tel1?'📞 '+esc(p.tel1):'<i>Pas de téléphone</i>'}${p.lat?' · 📍 GPS':''}${p.photos&&p.photos.length?' · 📷 '+p.photos.length:''}</p></div></div>`).join('')
+ :`<div class="empty">${places.length?'Aucun résultat.':'Aucun lieu pour le moment.<br>Appuyez sur <b>➕ Ajouter</b> pour commencer la collecte.'}</div>`}`;
+ $('#q').oninput=e=>{filter.q=e.target.value;const pos=e.target.selectionStart;rList();const i=$('#q');i.focus();i.setSelectionRange(pos,pos)};
+ $('#fc').onchange=e=>{filter.cat=e.target.value;rList()};
+ document.querySelectorAll('.item').forEach(el=>el.onclick=()=>go('form',places.find(p=>p.id===el.dataset.id)));
+}
+
+/* ---------- Formulaire ---------- */
+function rForm(){
+ const d=draft,isNew=!places.some(p=>p.id===d.id);
+ const f=k=>FIELDS_TXT.find(x=>x[0]===k);
+ const inp=(k,type='text',ph='')=>`<label>${f(k)[1]}</label><input name="${k}" type="${type}" placeholder="${ph}" value="${esc(d[k])}">`;
+ const area=k=>`<label>${f(k)[1]}</label><textarea name="${k}">${esc(d[k])}</textarea>`;
+ $('#app').innerHTML=`<h2>${isNew?'Nouveau lieu':'Modifier le lieu'}</h2><form id="f" class="card" autocomplete="off">
+ <div class="sec-t" style="margin-top:0">Identité</div>
+ ${inp('nom')}
+ <label>Catégorie *</label><select name="cat"><option value="">— Choisir —</option>${CATS.map(c=>`<option ${d.cat===c[1]?'selected':''}>${esc(c[1])}</option>`).join('')}</select>
+ ${inp('typePrecis','text','ex : hôtel 3 étoiles, pharmacie de nuit…')}
+ <div class="sec-t">Localisation</div>
+ ${inp('quartier')}${area('adresse')}${inp('repere','text','ex : en face de la grande mosquée')}${area('itineraire')}
+ <label>Position GPS <small>(se placer devant le lieu)</small></label>
+ <button type="button" class="btn sec" id="gps">📍 Capturer ma position actuelle</button>
+ <div class="row" style="margin-top:8px"><input name="lat" inputmode="decimal" placeholder="Latitude" value="${esc(d.lat??'')}"><input name="lng" inputmode="decimal" placeholder="Longitude" value="${esc(d.lng??'')}"></div>
+ <div class="gps" id="gpsinfo">${d.prec?'Précision : ±'+Math.round(d.prec)+' m':''}</div>
+ <div class="sec-t">Contacts</div>
+ ${inp('tel1','tel','ex : 622 00 00 00')}${inp('tel2','tel')}${inp('whatsapp','tel')}${inp('email','email')}${inp('web')}
+ <div class="sec-t">Informations pratiques</div>
+ ${area('horaires')}${inp('gamme','text','ex : 50 000 – 150 000 GNF')}
+ <label>Services disponibles</label><div class="chips" id="svc">${SERVICES.map(s=>`<button type="button" class="chip ${d.services.includes(s)?'on':''}">${esc(s)}</button>`).join('')}</div>
+ ${area('description')}
+ <div class="sec-t">Photos</div>
+ <label>Façade, entrée, enseigne… <small>(plusieurs photos possibles)</small></label>
+ <input type="file" id="ph" accept="image/*" multiple>
+ <div class="photos" id="phs"></div>
+ ${area('notes')}
+ <label style="display:flex;gap:8px;align-items:center;margin-top:14px"><input type="checkbox" name="verifie" style="width:auto" ${d.verifie?'checked':''}> Informations vérifiées sur place</label>
+ <div style="margin-top:16px" class="row"><button class="btn" type="submit">💾 Enregistrer</button><button class="btn sec" type="button" id="cancel">Annuler</button></div>
+ ${isNew?'':`<button class="btn red" type="button" id="del" style="margin-top:10px">${delArm?'Confirmer la suppression':'🗑️ Supprimer ce lieu'}</button>`}
+ </form>`;
+ drawPhotos();
+ const form=$('#f');
+ form.addEventListener('input',e=>{const n=e.target.name;if(n)d[n]=e.target.type==='checkbox'?e.target.checked:e.target.value});
+ $('#svc').onclick=e=>{const b=e.target.closest('.chip');if(!b)return;const s=b.textContent;d.services=d.services.includes(s)?d.services.filter(x=>x!==s):[...d.services,s];b.classList.toggle('on')};
+ $('#ph').onchange=async e=>{toast('Traitement des photos…');for(const fl of e.target.files){const r=await resize(fl);if(r)d.photos.push(r)}e.target.value='';drawPhotos();toast('Photos ajoutées')};
+ $('#gps').onclick=()=>{
+  if(!navigator.geolocation)return toast('GPS non disponible');
+  $('#gpsinfo').textContent='Recherche de la position…';
+  navigator.geolocation.getCurrentPosition(p=>{d.lat=+p.coords.latitude.toFixed(6);d.lng=+p.coords.longitude.toFixed(6);d.prec=p.coords.accuracy;form.lat.value=d.lat;form.lng.value=d.lng;$('#gpsinfo').textContent='Précision : ±'+Math.round(d.prec)+' m';toast('Position enregistrée')},
+  er=>{$('#gpsinfo').textContent='';toast('Position impossible : activez la localisation')},{enableHighAccuracy:true,timeout:25000,maximumAge:0})};
+ $('#cancel').onclick=()=>go('list');
+ const del=$('#del');if(del)del.onclick=async()=>{if(!delArm){delArm=true;del.textContent='Confirmer la suppression';return}await dbDel(d.id);await reload();toast('Lieu supprimé');go('list')};
+ form.onsubmit=async e=>{e.preventDefault();
+  if(!(d.nom||'').trim())return toast('Le nom est obligatoire');
+  if(!d.cat)return toast('Choisissez une catégorie');
+  d.lat=d.lat===''||d.lat==null?null:parseFloat(String(d.lat).replace(',','.'));d.lng=d.lng===''||d.lng==null?null:parseFloat(String(d.lng).replace(',','.'));
+  if(Number.isNaN(d.lat))d.lat=null;if(Number.isNaN(d.lng))d.lng=null;
+  d.created=d.created||Date.now();d.updated=Date.now();
+  try{await dbPut(d);await reload();toast('Lieu enregistré ✔');go('list')}catch(x){toast('Erreur d\'enregistrement (espace plein ?)')}};
+}
+function drawPhotos(){const c=$('#phs');if(!c)return;c.innerHTML=draft.photos.map((p,i)=>`<div><img src="${p.d}"><button type="button" data-i="${i}">×</button></div>`).join('');
+ c.onclick=e=>{const b=e.target.closest('button');if(!b)return;draft.photos.splice(+b.dataset.i,1);drawPhotos()}}
+function resize(file){return new Promise(res=>{const img=new Image(),u=URL.createObjectURL(file);
+ img.onload=()=>{const s=Math.min(1,1000/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);
+  c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);res({d:c.toDataURL('image/jpeg',.72),w:c.width,h:c.height})};
+ img.onerror=()=>res(null);img.src=u})}
+
+/* ---------- Export ---------- */
+function rExport(){
+ const by={};places.forEach(p=>by[p.cat]=(by[p.cat]||0)+1);
+ $('#app').innerHTML=`<h2>Exporter les données</h2>
+ <div class="card"><b>${places.length}</b> lieu(x) collecté(s)
+ ${Object.keys(by).sort().map(c=>`<div class="stat"><span>${icon(c)} ${esc(c)}</span><b>${by[c]}</b></div>`).join('')||'<p class="empty">Rien à exporter.</p>'}</div>
+ <div class="card">
+  <label style="display:flex;gap:8px;align-items:center;margin:0 0 12px"><input type="checkbox" id="wp" checked style="width:auto"> Inclure les photos dans le PDF</label>
+  <button class="btn" id="pdf" ${places.length?'':'disabled'}>📄 Télécharger le PDF complet</button>
+  <p style="font-size:13px;color:var(--m);margin:8px 0 0">Le PDF regroupe tous les lieux par catégorie, avec adresses, téléphones, GPS et photos : c'est le document à utiliser pour concevoir l'application finale.</p>
+ </div>
+ <div class="card"><b>Sauvegarde et autres formats</b>
+  <button class="btn sec" id="json" style="margin-top:10px">💾 Sauvegarde complète (JSON)</button>
+  <button class="btn sec" id="csv" style="margin-top:8px">📊 Tableau (CSV, sans photos)</button>
+  <label>Restaurer une sauvegarde JSON</label><input type="file" id="imp" accept=".json,application/json">
+  <p style="font-size:13px;color:var(--m)">Conseil : faites une sauvegarde JSON régulièrement, les données sont stockées sur ce téléphone.</p>
+ </div>`;
+ $('#pdf').onclick=()=>makePDF($('#wp').checked);
+ $('#json').onclick=()=>dl(new Blob([JSON.stringify({v:1,places},null,0)],{type:'application/json'}),'guide-labe-sauvegarde-'+day()+'.json');
+ $('#csv').onclick=exportCSV;
+ $('#imp').onchange=async e=>{try{const j=JSON.parse(await e.target.files[0].text());const arr=Array.isArray(j)?j:j.places;for(const p of arr)if(p&&p.id&&p.nom)await dbPut(p);await reload();toast(arr.length+' lieu(x) importé(s)');rExport()}catch(x){toast('Fichier invalide')}};
+}
+const day=()=>new Date().toISOString().slice(0,10);
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
+function exportCSV(){
+ const cols=['nom','cat','typePrecis','quartier','adresse','repere','itineraire','tel1','tel2','whatsapp','email','web','horaires','gamme','services','description','lat','lng','notes','verifie'];
+ const q=v=>'"'+String(Array.isArray(v)?v.join(' | '):(v??'')).replace(/"/g,'""')+'"';
+ const csv='﻿'+cols.join(';')+'\n'+places.map(p=>cols.map(c=>q(p[c])).join(';')).join('\n');
+ dl(new Blob([csv],{type:'text/csv;charset=utf-8'}),'guide-labe-lieux-'+day()+'.csv')}
+
+/* ---------- PDF ---------- */
+const clean=s=>String(s??'').replace(/[  ]/g,' ').replace(/[^\u0000-ÿ‘’“”–—…€]/g,'').trim();
+async function makePDF(withPhotos){
+ if(!window.jspdf)return toast('Bibliothèque PDF non chargée : rechargez la page');
+ toast('Création du PDF…');await new Promise(r=>setTimeout(r,50));
+ const {jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',format:'a4'}),W=210,H=297,M=15,CW=W-2*M,LW=36;let y=M;
+ const sorted=[...places].sort((a,b)=>a.cat.localeCompare(b.cat,'fr')||a.nom.localeCompare(b.nom,'fr'));
+ const ensure=h=>{if(y+h>H-M-6){doc.addPage();y=M}};
+ const by={};sorted.forEach(p=>by[p.cat]=(by[p.cat]||0)+1);
+ // Couverture
+ doc.setFillColor(15,118,110);doc.rect(0,0,W,80,'F');doc.setTextColor(255);
+ doc.setFont('helvetica','bold');doc.setFontSize(26);doc.text('Répertoire des lieux de Labé',M,38);
+ doc.setFont('helvetica','normal');doc.setFontSize(12);doc.text('Données collectées pour la conception de l\'application guide',M,50);
+ doc.text('Édité le '+new Date().toLocaleDateString('fr-FR')+'  ·  '+sorted.length+' lieu(x)',M,60);
+ y=95;doc.setTextColor(15,118,110);doc.setFont('helvetica','bold');doc.setFontSize(14);doc.text('Sommaire par catégorie',M,y);y+=8;
+ doc.setTextColor(30);doc.setFontSize(11);
+ Object.keys(by).sort((a,b)=>a.localeCompare(b,'fr')).forEach(c=>{ensure(7);doc.setFont('helvetica','normal');doc.text(clean(c),M+2,y);doc.setFont('helvetica','bold');doc.text(String(by[c]),W-M-2,y,{align:'right'});doc.setDrawColor(210);doc.line(M,y+1.8,W-M,y+1.8);y+=7});
+ doc.addPage();y=M;
+ let cur=null;
+ for(const p of sorted){
+  if(p.cat!==cur){cur=p.cat;ensure(30);doc.setFillColor(15,118,110);doc.rect(M,y,CW,9,'F');doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(clean(cur).toUpperCase(),M+3,y+6.2);y+=15}
+  ensure(28);
+  doc.setTextColor(17,94,89);doc.setFont('helvetica','bold');doc.setFontSize(13);
+  doc.splitTextToSize(clean(p.nom),CW).forEach(l=>{ensure(6);doc.text(l,M,y);y+=6});
+  const sub=[p.typePrecis,p.quartier,p.verifie?'Vérifié sur place':''].map(clean).filter(Boolean).join('  ·  ');
+  if(sub){doc.setFont('helvetica','italic');doc.setFontSize(9.5);doc.setTextColor(100);doc.text(sub,M,y);y+=5}
+  const rows=[['Adresse',p.adresse],['Point de repère',p.repere],['Comment s\'y rendre',p.itineraire],['Téléphone',[p.tel1,p.tel2].filter(Boolean).join('  /  ')],['WhatsApp',p.whatsapp],['E-mail',p.email],['Web / Facebook',p.web],['Horaires',p.horaires],['Gamme de prix',p.gamme],['Services',(p.services||[]).join(', ')],['Description',p.description],['Remarques',p.notes]];
+  doc.setFontSize(10);doc.setTextColor(30);
+  for(const [lab,val] of rows){const v=clean(val);if(!v)continue;const lines=doc.splitTextToSize(v,CW-LW);
+   for(let i=0;i<lines.length;i++){ensure(5);if(i===0){doc.setFont('helvetica','bold');doc.setTextColor(90);doc.text(clean(lab),M,y)}doc.setFont('helvetica','normal');doc.setTextColor(30);doc.text(lines[i],M+LW,y);y+=4.7}y+=0.8}
+  if(p.lat!=null&&p.lng!=null){ensure(6);doc.setFont('helvetica','bold');doc.setTextColor(90);doc.text('GPS',M,y);doc.setFont('helvetica','normal');doc.setTextColor(15,118,110);
+   doc.textWithLink(p.lat+', '+p.lng+'  (ouvrir dans Google Maps)',M+LW,y,{url:'https://www.google.com/maps?q='+p.lat+','+p.lng});y+=5.5}
+  if(withPhotos&&p.photos&&p.photos.length){
+   const gap=3,bw=(CW-2*gap)/3,bh=44;y+=2;
+   for(let i=0;i<p.photos.length;i+=3){ensure(bh+2);
+    p.photos.slice(i,i+3).forEach((ph,k)=>{const s=Math.min(bw/ph.w,bh/ph.h),w=ph.w*s,h=ph.h*s;try{doc.addImage(ph.d,'JPEG',M+k*(bw+gap),y,w,h,undefined,'FAST')}catch(e){}});
+    y+=bh+2}}
+  y+=3;ensure(4);doc.setDrawColor(200);doc.setLineWidth(0.2);doc.line(M,y,W-M,y);y+=6;
+ }
+ const n=doc.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(8);doc.setTextColor(140);doc.setFont('helvetica','normal');doc.text('Guide Labé – Page '+i+' / '+n,W/2,H-8,{align:'center'})}
+ try{doc.save('guide-labe-lieux-'+day()+'.pdf');toast('PDF téléchargé ✔')}catch(e){toast('Échec du PDF (trop de photos ? décochez-les)')}
+}
+
+/* ---------- Démarrage ---------- */
+(async()=>{try{await openDB();await reload();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){toast('Stockage indisponible sur ce navigateur')}go('list')})();
+if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script>
+</body>
+</html>
